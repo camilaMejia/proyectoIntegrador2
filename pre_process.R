@@ -43,13 +43,13 @@ get_tec=function(raw,etfs){
   
   
   pair_tecnical=pair%>%
-    mutate(sma14     = SMA(pair_index,n=14),
-           sma50     = SMA(pair_index,n=50),
-           sma200    = SMA(pair_index,n=200),
+    mutate(sma14     = SMA(pair_index,n=14)/pair_index,
+           sma50     = SMA(pair_index,n=50)/pair_index,
+           sma200    = SMA(pair_index,n=200)/pair_index,
            c14vs50   = sma14/sma50,
            c14vs200  = sma14/sma200,
            c50vs200  = sma50/sma200,
-           ema       = EMA(pair_index,n=14),
+           ema       = EMA(pair_index,n=14)/pair_index,
            momentum  = momentum(pair_index,n=2),
            macd      = MACD(pair_index, nFast=12, nSlow=26,
                            nSig=9, maType=SMA)[,2],
@@ -121,22 +121,6 @@ pair_tecnical3=get_tec(raw,etfs)
 pair_tecnical=pair_tecnical%>%
   rbind(pair_tecnical2)%>%
   rbind(pair_tecnical3)
-
-
-stat19=get_year_strategy(pair_tecnical,y=2019,yot=5,met='knn')
-
-stat18=get_year_strategy(pair_tecnical,y=2018,yot=5,met='knn')
-    
-strategy=rbind(stat19,stat18)
-k=length(unique(strategy$pair))
-
-portfolio=strategy%>%
-  separate(pair,c('etf1','etf2'),'_')%>%
-  mutate(vote=ifelse(expected=='1',etf1,etf2))%>%
-  count(date,vote)%>%
-  mutate(n=2*n/(k*(k-1)))%>%
-  spread(key=vote,value=n,fill=0)%>%
-  head()
 
 
   
