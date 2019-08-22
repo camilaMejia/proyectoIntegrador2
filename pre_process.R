@@ -106,21 +106,29 @@ get_year_strategy=function(pair_tecnical,y=2019,yot=3,met='knn'){
 
 
 
-etfs=c('EWD US Equity','EWP US Equity')
-
-pair_tecnical=get_tec(raw,etfs)
-
-etfs=c('EWI US Equity','EWD US Equity')
-
-pair_tecnical2=get_tec(raw,etfs)
-
-etfs=c('EWP US Equity','EWI US Equity')
-
-pair_tecnical3=get_tec(raw,etfs)
-
-pair_tecnical=pair_tecnical%>%
-  rbind(pair_tecnical2)%>%
-  rbind(pair_tecnical3)
 
 
-  
+etfs=c('EWP US Equity',
+       'EWI US Equity',
+       'EWD US Equity',
+       'EWU US Equity',
+       'EWG US Equity',
+       'EWQ US Equity',
+       'EWN US Equity',
+       'EWL US Equity',
+       'IEV US Equity',
+       'IEV US Equity',
+       'EZU US Equity')
+
+all_pairs=data.frame(combn(etfs,2),stringsAsFactors = FALSE)
+
+all_pairs=lapply(all_pairs, c)
+
+all_tecs=lapply(all_pairs,get_tec,raw=raw)
+
+pair_tecnical=do.call(rbind,all_tecs)
+
+
+
+
+

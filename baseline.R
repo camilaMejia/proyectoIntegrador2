@@ -99,33 +99,37 @@ get_year_strategy=function(pair_tecnical,y=2019,yot=3,met='knn'){
   test=pair_tecnical%>%
     filter(date>=cut,date<sco)
   
+  
   strategy=get_test_predictions(training ,test,met='knn')
   
   return(strategy)
 }
 
 
+etfs=c('EWP US Equity',
+       'EWI US Equity',
+       'EWD US Equity',
+       'EWU US Equity',
+       'EWG US Equity',
+       'EWQ US Equity',
+       'EWN US Equity',
+       'EWL US Equity',
+       'IEV US Equity',
+       'EZU US Equity')
 
-etfs=c('EWD US Equity','EWP US Equity')
+all_pairs=data.frame(combn(etfs,2),stringsAsFactors = FALSE)
 
-pair_tecnical=get_tec(raw,etfs)
+all_pairs=lapply(all_pairs, c)
 
-etfs=c('EWI US Equity','EWD US Equity')
+all_tecs=lapply(all_pairs,get_tec,raw=raw)
 
-pair_tecnical2=get_tec(raw,etfs)
-
-etfs=c('EWP US Equity','EWI US Equity')
-
-pair_tecnical3=get_tec(raw,etfs)
-
-pair_tecnical=pair_tecnical%>%
-  rbind(pair_tecnical2)%>%
-  rbind(pair_tecnical3)
+pair_tecnical=do.call(rbind,all_tecs)
 
 
-stat19=get_year_strategy(pair_tecnical,y=2019,yot=5,met='rf')
 
-stat18=get_year_strategy(pair_tecnical,y=2018,yot=5,met='rf')
+stat19=get_year_strategy(pair_tecnical,y=2019,yot=5,met='knn')
+
+stat18=get_year_strategy(pair_tecnical,y=2018,yot=5,met='knn')
     
 strategy=rbind(stat19,stat18)
 k=length(unique(strategy$pair))
@@ -134,16 +138,30 @@ portfolio=strategy%>%
   separate(pair,c('etf1','etf2'),'_')%>%
   mutate(vote=ifelse(expected=='1',etf1,etf2))%>%
   count(date,vote)%>%
-  mutate(n=2*n/(k*(k-1)))%>%
+  mutate(n=n/(k))%>%
   spread(key=vote,value=n,fill=0)
 
-strategy%>%
-  count(pair,label,expected)%>%
-  mutate(label=fct_rev(label))%>%
-  ggplot(aes(label,expected,fill=n,label=n))+
-  geom_tile()+
-  geom_text()+
-  facet_wrap(~pair)
+portfolio_tidy=portfolio%>%
+  gather(etf,w,-date)
+
+retornos_tidy_1a=raw%>%#el retorno del dia siguiente
+  select(date,etf,tri)%>%
+  group_by(etf)%>%
+  mutate(ret=c(ROC(tri,n=1,type = 'discrete')[-1],NA))%>%
+  ungroup()%>%
+  select(date,etf,ret)
+
+retorno_portafolio=portfolio_tidy%>%
+  left_join(retornos_tidy_1a,by=c('etf','date'))%>%
+  group_by(date)%>%
+  summarise(ret_stat=sum(w*ret),ret_ew=mean(ret))%>%
+  ungroup()%>%
+  mutate(stat=cumprod(1+ret_stat),ew=cumprod(1+ret_ew))
+
+retorno_portafolio%>%
+  select(date,stat,ew)%>%
+  gather(strategy,index,-date)%>%
+  plot_ly(x=~date,y=~index,color=~strategy,mode='lines')
 
 
   
