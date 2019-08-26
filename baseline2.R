@@ -52,25 +52,29 @@ get_tec=function(raw,etfs,k=7){
            ema       = EMA(pair_index,n=14)/pair_index,
            momentum  = momentum(pair_index,n=2),
            macd      = MACD(pair_index, nFast=12, nSlow=26,
-                           nSig=9, maType=SMA)[,2],
+                            nSig=9, maType=SMA)[,2],
            rsi       = RSI(pair_index, n=14),
            cci       = CCI(pair_index, n = 20),
            vhf       = VHF(pair_index, n = 28),
            label     = put_label(pair_index,k=k))%>%
     filter(!is.na(c50vs200),!is.na(label))%>%
     select(pair,date,label,pair_index,
+           sma14,sma50,sma200,
+           c14vs50,c50vs200,c14vs200,
+           ema,momentum,
            macd,cci,vhf,rsi)%>%
-    mutate(label=factor(ifelse(label>0,1,0)))
-    return(pair_tecnical)
+    mutate(label=factor(ifelse(label>0,'act_1','act_2')))
+  return(pair_tecnical)
 }
 
 
-get_test_predictions=function(training,test,met='knn'){
-
+get_model=function(training,met='knn'){
+  
   fitControl <- trainControl(## 10-fold CV repeted 10 times
     method = "repeatedcv",
     number = 5,
-    repeats = 5)
+    repeats = 5,
+    classProbs = TRUE)
   
   if(met=='gbm'){
     model <- train(label ~ ., data = training, 
@@ -80,25 +84,19 @@ get_test_predictions=function(training,test,met='knn'){
                    verbose=FALSE)
   }else{
     model <- train(label ~ ., data = training, 
-                       method = met, 
-                       trControl = fitControl,
-                       preProcess=c("center", "scale"))
-    }
+                   method = met, 
+                   trControl = fitControl,
+                   preProcess=c("center", "scale"))
+  }
   
-  
-
-
-  test_pred=test%>%
-    mutate(expected=predict(model,.))%>%
-    select(date,pair,label,expected)
-  return(test_pred)
+  return(model)
 }
 
 
 
 
 
-get_year_strategy=function(pair_tecnical,y=2019,yot=3,met='knn'){
+get_year_model_and_pred=function(pair_tecnical,y=2019,yot=3,met='knn'){
   ini=as.Date('2010-01-01')
   year(ini)=y-yot
   cut=ini
@@ -113,60 +111,27 @@ get_year_strategy=function(pair_tecnical,y=2019,yot=3,met='knn'){
   test=pair_tecnical%>%
     filter(date>=cut,date<sco)
   
+  model=get_model(training,met=met)
   
-  strategy=get_test_predictions(training ,test,met=met)
+  prediction=test%>%
+    mutate(expected=predict(model,.,type = "prob")[,1])%>%
+    select(date,pair,label,expected)
   
-  return(strategy)
+  return(list(model=model,prediction=prediction))
 }
 
 
-etfs=c('EWP US Equity',
-       'EWI US Equity',
-       'EWD US Equity',
-       'EWU US Equity',
-       'EWG US Equity',
-       'EWQ US Equity',
-       'EWN US Equity',
-       'EWL US Equity',
-       'IEV US Equity',
-       'EZU US Equity')
-
-
-
-
-
-
-info_inicial=read.csv('info.csv',stringsAsFactors = FALSE)
-etfs=info_inicial%>%
-  filter(Zona=='US')%>%
-  select(Ticker)%>%
-  pull()
-
-
-
-
-etfs=c('AAXJ US Equity',
-       'EWU US Equity',
-       #'EZU US Equity',
-       'SPY US Equity',
-       'EWG US Equity',
-       'EWQ US Equity',
-       'IEV US Equity')
-
-
-
-
-etfs=c('IEV US Equity',
-       )
 
 etfs=c(
-       'MCHI US Equity',
-       'EWH US Equity',
-       #'EWA US Equity',
-       #'EWM US Equity',
-       'EWY US Equity'
-       #'INDA US Equity'
-       )
+  'MCHI US Equity', #china
+  'EWH US Equity', #hong kong
+  'EWY US Equity', #korea
+  'EWA US Equity', #Australia
+  'INDA US Equity', #india
+  'AAXJ US Equity' # Asia general
+)
+
+
 
 
 k=5
@@ -180,23 +145,72 @@ all_tecs=lapply(all_pairs,get_tec,raw=raw,k=k)
 pair_tecnical=do.call(rbind,all_tecs)
 
 
-
-strategy=lapply(as.list(2010:2019),
-                get_year_strategy,
+met='rf'
+years=as.list(2015:2019)
+strategy_and_model=lapply(years,
+                get_year_model_and_pred,
                 pair_tecnical=pair_tecnical,
                 yot=5,
-                met='glm')
+                met=met)
+models=list()
+strategy=list()
+for (y in 1:length(years)){
+  models[[y]]=strategy_and_model[[y]]$model
+  strategy[[y]]=strategy_and_model[[y]]$prediction
+}
 
 
-strategy=do.call(rbind,strategy)
+strategy=do.call(rbind,strategy)%>%
+  mutate(prob=expected,expected=factor(ifelse(expected>0.5,'act_1','act_2')))
 
-strategy%>%
-  count(label,expected)
+get_importance=function(model){
+  return(varImp(model, scale = TRUE)$importance)
+}
+
+
+if (met %in%c('rf','glm')){
+  importances=do.call(cbind,lapply(models,get_importance))
+  colnames(importances)=do.call(c,years)
+  
+  importances%>%
+    mutate(feature=row.names(.))%>%
+    gather(year,overall,-feature)%>%
+    plot_ly(x=~feature,y=~overall,color = ~year,type='bar')
+}
+    
+multiple_vote=function(prob,etf1,etf2){
+  vote=etf1
+  for (p in 1:length(prob)){
+    pp=prob[p]
+    if(pp>0.5){
+      vote[p]=etf1[1] #normal
+    }else{
+      vote[p]=etf2[1]
+    }
+    if(abs(pp-0.5)<0.1){
+      if(pp>0.5){
+        vote[p]=etf2[1] #contrario
+      }else{
+        vote[p]=etf1[1] #contrario
+      }
+    }
+  }
+  return(vote)
+}
 
 portfolio=strategy%>%
   separate(pair,c('etf1','etf2'),'_')%>%
-  mutate(vote=ifelse(expected=='1',etf1,etf2))%>%
-  #mutate(vote=ifelse(runif(nrow(.))>0.5,etf1,etf2))%>%
+  mutate(vote=ifelse(prob>0.5,etf1,etf2),
+         vote2=multiple_vote(prob,etf1,etf2))
+portfolio_base=portfolio%>%
+  select(vote,date,etf1,etf2)
+portfolio_conf=portfolio%>%
+  select(vote2,date,etf1,etf2)%>%
+  rename(vote=vote2)
+
+
+portfolio=portfolio_base%>%
+  rbind(portfolio_conf)%>%
   count(date,vote)%>%
   spread(key=vote,value=n,fill=0)
 
@@ -206,7 +220,7 @@ portfolio_tidy=portfolio%>%
   mutate(w=w/sum(w))
 
 
-  
+
 
 retornos_tidy_1a=raw%>%#el retorno del dia siguiente
   select(date,etf,tri)%>%
@@ -223,11 +237,6 @@ retorno_portafolio=portfolio_tidy%>%
   ungroup()%>%
   mutate(stat=cumprod(1+ret_stat),ew=cumprod(1+ret_ew))
 
-retorno_portafolio%>%
-  select(date,stat,ew)%>%
-  gather(strategy,index,-date)%>%
-  plot_ly(x=~date,y=~index,color=~strategy,mode='lines')
-
 
 
 portfolio_tidy%>%
@@ -242,7 +251,16 @@ portfolio_tidy%>%
   ungroup()%>%
   gather(stat,ret,-y)%>%
   plot_ly(x=~y,y=~ret,color=~stat,type='bar')
-  
+
+retorno_portafolio%>%
+  select(date,stat,ew)%>%
+  gather(strategy,index,-date)%>%
+  plot_ly(x=~date,y=~index,color=~strategy,mode='lines')
+
+
+
+
+
 
 strategy%>%
   count(expected,label)%>%
@@ -255,7 +273,3 @@ strategy%>%
 
 
 
-
-
-
-  

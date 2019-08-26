@@ -1,0 +1,43 @@
+Zona,Ticker,Name
+Europa,IEV US Equity,Europa
+Europa,EWG US Equity,Alemania
+Europa,EWP US Equity,España
+Europa,EWQ US Equity,Francia
+Europa,EWN US Equity,Holanda
+Europa,EWI US Equity,Italia
+Europa,EWD US Equity,Suecia
+Europa,EWL US Equity,Suiza
+Europa,EWU US Equity,UK
+Eurozona,EZU US Equity,Eurozona
+Eurozona,IEV US Equity,Europa
+Eurozona,EWG US Equity,Alemania
+Eurozona,EWP US Equity,España
+Eurozona,EWQ US Equity,Francia
+Eurozona,EWN US Equity,Holanda
+Eurozona,EWI US Equity,Italia
+Eurozona,EWD US Equity,Suecia
+Eurozona,EWL US Equity,Suiza
+Eurozona,EWU US Equity,UK
+ASI,EWH US Equity,Hong Kong
+ASI,EWY US Equity,South Korea
+ASI,EWT US Equity,Taiwan
+ASI,EWA US Equity,Australia
+ASI,EWM US Equity,Malaysia
+ASI,THD US Equity,Thailand
+ASI,EWS US Equity,Singapore
+ASI,EIDO US Equity,Indonesia
+ASI,EPHE US Equity,Philippines
+ASI,MCHI US Equity,China
+ASI,INDA US Equity,India
+ASI,PAK US Equity,Pakistan
+ASI,AAXJ US Equity,Asia
+US,XLB US Equity,MATERIALS SELECT SECTOR SPDR
+US,XLC US Equity,COMM SERV SELECT SECTOR SPDR
+US,XLY US Equity,CONSUMER DISCRETIONARY SELT
+US,XLP US Equity,CONSUMER STAPLES SPDR
+US,XLE US Equity,ENERGY SELECT SECTOR SPDR
+US,XLF US Equity,FINANCIAL SELECT SECTOR SPDR
+US,XLI US Equity,INDUSTRIAL SELECT SECT SPDR
+US,XLK US Equity,TECHNOLOGY SELECT SECT SPDR
+US,XLU US Equity,UTILITIES SELECT SECTOR SPDR
+US,SPY US Equity,USA
